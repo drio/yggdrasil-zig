@@ -61,6 +61,7 @@ fn createKeyPairFromEnv(allocator: std.mem.Allocator) !std.crypto.sign.Ed25519.K
     defer allocator.free(secret_key_env);
 
     // Convert hex strings to bytes
+    // you cannot leave a variable unassigned in zig, set them to undefined
     // N bytes of garbage, no need to zero it
     var public_key: [32]u8 = undefined;
     var secret_key: [64]u8 = undefined;
@@ -76,8 +77,8 @@ fn createKeyPairFromEnv(allocator: std.mem.Allocator) !std.crypto.sign.Ed25519.K
 }
 
 // 1. generate Ed25519 key generate and load
-// 2. IPv6 address derivation (look at yggdrasil code)
-// 3. hex encoding of the keys
+// 2. hex encoding of the keys
+// 3. IPv6 address derivation (look at yggdrasil code)
 pub fn main() !void {
     std.debug.print("start here!\n", .{});
 
