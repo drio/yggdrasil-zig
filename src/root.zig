@@ -11,17 +11,10 @@ fn bytesToBase64(bytes: []const u8, allocator: Allocator) ![]const u8 {
     return result; // Caller owns this memory
 }
 
-// 1. generate Ed25519 key generate and load
-// 2. IPv6 address derivation (look at yggdrasil code)
-// 3. hex encoding of the keys
-pub fn main() !void {
-    std.debug.print("start here!\n", .{});
-
+fn printKey(key_pair: Ed25519.KeyPair) !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
-
-    const key_pair = Ed25519.KeyPair.generate();
 
     // Public key
     {
@@ -38,4 +31,14 @@ pub fn main() !void {
         defer allocator.free(pri_b64);
         std.debug.print("Base64 pri: {s}\n", .{pri_b64});
     }
+}
+
+// 1. generate Ed25519 key generate and load
+// 2. IPv6 address derivation (look at yggdrasil code)
+// 3. hex encoding of the keys
+pub fn main() !void {
+    std.debug.print("start here!\n", .{});
+
+    const key_pair = Ed25519.KeyPair.generate();
+    try printKey(key_pair);
 }
