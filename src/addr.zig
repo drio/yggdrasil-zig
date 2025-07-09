@@ -1,4 +1,5 @@
 const std = @import("std");
+const t = std.testing;
 const Ed25519 = std.crypto.sign.Ed25519;
 
 // Address type - 128-bit address = 16 bytes
@@ -14,6 +15,17 @@ const Address = struct {
         return true;
     }
 };
+
+test "addr:is_valid" {
+    var a = Address{ .bytes = std.mem.zeroes([16]u8) };
+    try t.expect(a.is_valid() == false);
+
+    a.bytes[0] = 0x03;
+    try t.expect(a.is_valid() == false);
+
+    a.bytes[0] = 0x02;
+    try t.expect(a.is_valid() == true);
+}
 
 // In the yggdrasil go code, the prefix is harcoded to 0x02
 fn getPrefix() [1]u8 {
@@ -102,4 +114,19 @@ pub fn addrForKey(public_key: Ed25519.PublicKey) Address {
     @memcpy(addr.bytes[prefix.len + 1 .. prefix.len + 1 + bytes_to_copy], temp[0..bytes_to_copy]);
 
     return addr;
+}
+
+test "addr_for_key" {
+    const public_key = try Ed25519.PublicKey.fromBytes([32]u8{
+        189, 186, 207, 216, 34,  64,  222, 61, 205, 18,  57,  36, 203, 181, 82,  86,
+        251, 141, 171, 8,   170, 152, 227, 5,  82,  138, 184, 79, 65,  158, 110, 251,
+    });
+
+    const expected_address = Address{ .bytes = [16]u8{
+        2, 0, 132, 138, 96, 79, 187, 126, 67, 132, 101, 219, 141, 182, 104, 149,
+    } };
+
+    const addr = addrForKey(public_key);
+
+    try t.expect(std.mem.eql(u8, &expected_address.bytes, &addr.bytes));
 }
