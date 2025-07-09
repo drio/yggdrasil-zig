@@ -4,6 +4,15 @@ const Ed25519 = std.crypto.sign.Ed25519;
 // Address type - 128-bit address = 16 bytes
 const Address = struct {
     bytes: [16]u8,
+
+    // is the address valid?
+    pub fn is_valid(self: Address) bool {
+        const prefix = getPrefix();
+        for (0..prefix.len) |i| {
+            if (self.bytes[i] != prefix[i]) return false;
+        }
+        return true;
+    }
 };
 
 // In the yggdrasil go code, the prefix is harcoded to 0x02
@@ -52,7 +61,6 @@ pub fn addrForKey(public_key: Ed25519.PublicKey) Address {
 
             // Skip the first 0 bit after leading 1s
             if (!done and bit == 0) {
-                std.debug.print("done count: {d}\n", .{ones});
                 done = true;
                 continue;
             }

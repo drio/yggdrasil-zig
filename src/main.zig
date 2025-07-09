@@ -105,4 +105,5 @@ pub fn main() !void {
         if (i < 7) std.debug.print(":", .{});
     }
     std.debug.print("\n", .{});
+    std.debug.print("Is valid?: {} \n", .{ip_addr.is_valid()});
 }
