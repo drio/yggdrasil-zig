@@ -21,7 +21,7 @@ fn getPrefix() [1]u8 {
 // leading ones: 3
 // final address/output: [0x02][3][11010...][zeros] (16 bytes; 128 bits)
 // Notice how we skip the first byte (zero) after 1
-fn addrForKey(public_key: Ed25519.PublicKey) ?*Address {
+fn addrForKey(public_key: Ed25519.PublicKey) Address {
     var buf: [public_key.bytes.len]u8 = undefined;
     @memcpy(buf[0..], public_key.bytes[0..]);
 
@@ -43,8 +43,8 @@ fn addrForKey(public_key: Ed25519.PublicKey) ?*Address {
 
     for (0..buf.len) |byte_idx| { // each byte in buf
         for (0..8) |i| {
-            // get each bit for the byte in buf we are working on
             const bit_idx: u3 = @intCast(i);
+            // get each bit for the byte in buf we are working on
             const bit = (buf[byte_idx] >> (7 - bit_idx)) & 1;
 
             // Count leading 1s
@@ -55,15 +55,20 @@ fn addrForKey(public_key: Ed25519.PublicKey) ?*Address {
 
             // Skip the first 0 bit after leading 1s
             if (!done and bit == 0) {
+                std.debug.print("done count: {d}\n", .{ones});
                 done = true;
                 continue;
             }
 
-            // apped the current bit to bits
-            bits = (bits << 1) | @as(u8, bit);
+            // Now we have to store the remaining bits
+
+            // Add the current bit to bits
+            bits = (bits << 1) | bit;
             n_bits += 1;
 
             // If we have a full byte add it to temp and reset
+            // so we can continue working on the first bit of
+            // the next byte
             if (n_bits == 8) {
                 temp[temp_len] = bits;
                 temp_len += 1;
@@ -73,6 +78,8 @@ fn addrForKey(public_key: Ed25519.PublicKey) ?*Address {
         }
     }
 
+    // Prepare the address
+    // Prefix is a hardcoded 0x02 byte (as coded in the yggdrasil canonical implementation)
     const prefix = getPrefix();
     var addr = Address{ .bytes = undefined };
 
@@ -89,7 +96,7 @@ fn addrForKey(public_key: Ed25519.PublicKey) ?*Address {
     // Copy only what fits
     @memcpy(addr.bytes[prefix.len + 1 .. prefix.len + 1 + bytes_to_copy], temp[0..bytes_to_copy]);
 
-    return &addr;
+    return addr;
 }
 
 // Helper function to convert bytes to base64
@@ -174,25 +181,21 @@ pub fn main() !void {
     defer _ = gpa.deinit();
     const allocator = gpa.allocator();
 
-    const keypair = Ed25519.KeyPair.generate();
+    // const keypair = Ed25519.KeyPair.generate();
 
-    // const keypair = createKeyPairFromEnv(allocator) catch |err| {
-    //     std.debug.print("Failed to create keypair: {}\n", .{err});
-    //     return;
-    // };
-    //std.debug.print("Ed25519 KeyPair loaded\n", .{});
-    //
-
+    const keypair = createKeyPairFromEnv(allocator) catch |err| {
+        std.debug.print("Failed to create keypair: {}\n", .{err});
+        return;
+    };
+    std.debug.print("Ed25519 KeyPair loaded\n", .{});
     try printKey(keypair, allocator);
-    if (addrForKey(keypair.public_key)) |addr| {
-        std.debug.print("addr: ", .{});
-        for (0..8) |i| {
-            const group = (@as(u16, addr.bytes[i * 2]) << 8) | addr.bytes[i * 2 + 1];
-            std.debug.print("{x:0>4}", .{group});
-            if (i < 7) std.debug.print(":", .{});
-        }
-        std.debug.print("\n", .{});
-    } else {
-        return error.InvalidKey;
+
+    const addr = addrForKey(keypair.public_key);
+    std.debug.print("addr: ", .{});
+    for (0..8) |i| {
+        const group = (@as(u16, addr.bytes[i * 2]) << 8) | addr.bytes[i * 2 + 1];
+        std.debug.print("{x:0>4}", .{group});
+        if (i < 7) std.debug.print(":", .{});
     }
+    std.debug.print("\n", .{});
 }
