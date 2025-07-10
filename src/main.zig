@@ -5,6 +5,7 @@ const Ed25519 = std.crypto.sign.Ed25519;
 
 const addr = @import("addr.zig");
 const core = @import("core.zig");
+const tun = @import("tun.zig");
 
 // 1. generate Ed25519 key generate and load
 // 2. hex encoding of the keys
@@ -34,4 +35,9 @@ pub fn main() !void {
     }
     std.debug.print("\n", .{});
     std.debug.print("Is valid?: {} \n", .{ip_addr.is_valid()});
+
+    var tun_dev = try tun.Tun.init("tun0");
+    defer tun_dev.deinit();
+    try tun_dev.configure("192.168.50.1", "24");
+    try tun_dev.runPacketLoop();
 }

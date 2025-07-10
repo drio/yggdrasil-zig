@@ -3,3 +3,7 @@ node_modules
 .env*
 *.mp4
 .zig-cache
+main
+main.o
+tun_app
+tun_app.o
