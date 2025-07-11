@@ -6,6 +6,7 @@ const Ed25519 = std.crypto.sign.Ed25519;
 const addr = @import("addr.zig");
 const core = @import("core.zig");
 const tun = @import("tun.zig");
+const version = @import("version.zig");
 
 // 1. generate Ed25519 key generate and load
 // 2. hex encoding of the keys
@@ -19,7 +20,6 @@ const tun = @import("tun.zig");
 // 7. read(tun): send them over the tcp connection to G.
 // 8. read(tcp connection with G): write them to the tun device.
 // Milestone: At this point I should have a functioning Yggdrasil leaf node.
-
 pub fn main() !void {
     std.debug.print("start here!\n", .{});
 
@@ -46,8 +46,16 @@ pub fn main() !void {
     std.debug.print("\n", .{});
     std.debug.print("Is valid?: {} \n", .{ip_addr.is_valid()});
 
-    var tun_dev = try tun.Tun.init("tun0");
-    defer tun_dev.deinit();
-    try tun_dev.configure("192.168.50.1", "24");
-    try tun_dev.runPacketLoop();
+    // var tun_dev = try tun.Tun.init("tun0");
+    // defer tun_dev.deinit();
+    // try tun_dev.configure("192.168.50.1", "24");
+    // try tun_dev.runPacketLoop();
+
+    std.debug.print("foo: {}\n", .{version.MetaField.priority});
+    var metadata = version.VersionMetadata.init();
+    const handshake_bytes = try metadata.encode(allocator, keypair.secret_key, null);
+    defer allocator.free(handshake_bytes);
+    std.debug.print("Bytes: ", .{});
+    for (handshake_bytes) |b| std.debug.print("{X:0>2}", .{b});
+    std.debug.print("\n", .{});
 }
