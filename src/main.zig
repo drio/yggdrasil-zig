@@ -10,6 +10,16 @@ const tun = @import("tun.zig");
 // 1. generate Ed25519 key generate and load
 // 2. hex encoding of the keys
 // 3. IPv6 address derivation (look at yggdrasil code)
+// 4. create tun device (set ipv6 address)
+// 5. associate my ipv6 address to the tun device.
+// 6. Do the handshake with G.
+//  a. method to prepare structure.
+//  b. write code to send handshake
+//  c. read response.
+// 7. read(tun): send them over the tcp connection to G.
+// 8. read(tcp connection with G): write them to the tun device.
+// Milestone: At this point I should have a functioning Yggdrasil leaf node.
+
 pub fn main() !void {
     std.debug.print("start here!\n", .{});
 
