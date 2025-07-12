@@ -1,3 +1,11 @@
+// This logic captures how to encode and decode the handshake process
+// to connect to the yggdrasil network via another node
+//
+// Wire format:
+// Header: [4:"meta"][2:payload_length]
+// Payload: [metadata_entries...][64:ed25519_signature]
+// Each entry: [2:opcode][2:length][length:data]
+
 const std = @import("std");
 const crypto = std.crypto;
 const mem = std.mem;
