@@ -116,4 +116,71 @@ pub const VersionMetadata = struct {
         // free the arraylist and return a new chunk of memory with our bytes
         return buffer.toOwnedSlice();
     }
+
+    // decode these bytes and set the metadata
+    pub fn decode(self: *const Self, data: []const u8, password: []const u8) !void {
+        if (data.len < 6) return error.InsufficientData;
+
+        // Let's check the header
+        const bh = data[0..6];
+        const meta = [4]u8{ 'm', 'e', 't', 'a' };
+        if (!std.mem.eql(u8, bh[0..4], &meta)) {
+            return error.HandshakeInvalidPreamble;
+        }
+
+        // Now the magic number that tells us how many bytes for the metadata + signature
+        const hl = std.mem.readIntBig(u16, bh[4..6]);
+        // At least it should be bigger than the signature
+        // NOTE: in the go library, this constant is available. Should we send a PR?
+        if (hl < ED25519_SIGNATURE_SIZE) {
+            return error.HandshakeInvalidLength;
+        }
+
+        // Skip header, get the rest: metadata + signature
+        const bs_full = data[6 .. 6 + hl];
+
+        // Metadata
+        const bs = bs_full[0 .. bs_full.len - ED25519_SIGNATURE_SIZE];
+        // Signature
+        const sig = bs_full[bs_full.len - ED25519_SIGNATURE_SIZE ..];
+
+        // Each entry
+        // [2 bytes: opcode][2 bytes: length][length bytes: value]
+        var bs_remaining = bs;
+        while (bs_remaining.len >= 4) {
+            const op = std.mem.readIntBig(u16, bs_remaining[0..2]);
+            const oplen = std.mem.readIntBig(u16, bs_remaining[2..4]);
+
+            bs_remaining = bs_remaining[4..]; // point to the actual entry data
+
+            if (bs_remaining.len < oplen) {
+                break;
+            }
+
+            switch (op) {
+                MetaField.version_major => {
+                    self.majorVer = std.mem.readIntBig(u16, bs_remaining[0..2]);
+                },
+                MetaField.version_minor => {
+                    self.minorVer = std.mem.readIntBig(u16, bs_remaining[0..2]);
+                },
+                MetaField.public_key => {
+                    std.mem.copy(u8, &self.publicKey, bs_remaining[0..ED25519_PUBLIC_KEY_SIZE]);
+                },
+                MetaField.priority => {
+                    self.priority = bs_remaining[0];
+                },
+                else => {
+                    return error.InvalidMetaDataEntry;
+                },
+            }
+
+            bs_remaining = bs_remaining[oplen..]; // next entry
+        }
+
+        // TODO: Signature next
+
+        _ = sig;
+        _ = password;
+    }
 };

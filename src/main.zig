@@ -51,7 +51,6 @@ pub fn main() !void {
     // try tun_dev.configure("192.168.50.1", "24");
     // try tun_dev.runPacketLoop();
 
-    std.debug.print("foo: {}\n", .{version.MetaField.priority});
     var metadata = version.VersionMetadata.init();
     const handshake_bytes = try metadata.encode(allocator, keypair.secret_key, null);
     defer allocator.free(handshake_bytes);
