@@ -186,9 +186,27 @@ pub const VersionMetadata = struct {
             bs_remaining = bs_remaining[oplen..]; // next entry
         }
 
-        // TODO: Signature next
+        // Signature next
+        // 1. Create BLAKE2b hasher (with or without password)
+        var hasher = std.crypto.hash.blake2.Blake2b512.init(.{ .key = password });
 
-        _ = sig;
-        _ = password;
+        // 2. Hash the public key
+        hasher.update(&self.publicKey);
+        var hash: [64]u8 = undefined;
+        hasher.final(&hash);
+
+        // 3. Now, verify that the public was signed with the private key (the sender owns the private key)
+        const public_key = Ed25519.PublicKey.fromBytes(self.publicKey) catch {
+            return error.InvalidPublicKey;
+        };
+
+        const signature = Ed25519.Signature.fromBytes(sig[0..64].*) catch {
+            return error.InvalidSignature;
+        };
+
+        // Simple verification - this is what you want
+        signature.verify(hash, public_key) catch {
+            return error.SignatureVerifiactionFailure;
+        };
     }
 };
