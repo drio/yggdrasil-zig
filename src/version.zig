@@ -11,6 +11,7 @@ const crypto = std.crypto;
 const mem = std.mem;
 const Allocator = std.mem.Allocator;
 const Ed25519 = crypto.sign.Ed25519;
+const testing = std.testing;
 
 // Protocol version constants
 pub const PROTOCOL_VERSION_MAJOR: u16 = 0;
