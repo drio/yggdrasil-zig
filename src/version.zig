@@ -279,34 +279,33 @@ test "version password auth" {
 
 // Helper test to verify basic functionality
 test "version metadata round trip" {
-    const key_pair = Ed25519.KeyPair.generate() catch unreachable;
+    const key_pair = Ed25519.KeyPair.generate();
 
     var original = VersionMetadata{
-        .publicKey = key_pair.public_key.bytes,
-        .majorVer = 42,
-        .minorVer = 13,
+        .public_key = key_pair.public_key.bytes,
+        .major_ver = 42,
+        .minor_ver = 13,
         .priority = 200,
     };
 
     const password = "test_password";
 
-    // Encode
-    const encoded = original.encode(key_pair.secret_key.bytes, password, t_allocator) catch unreachable;
+    const encoded = try original.encode(t_allocator, key_pair.secret_key, password);
     defer t_allocator.free(encoded);
 
     // Decode
     var decoded = VersionMetadata{
-        .publicKey = undefined,
-        .majorVer = 0,
-        .minorVer = 0,
+        .public_key = undefined,
+        .major_ver = 0,
+        .minor_ver = 0,
         .priority = 0,
     };
 
     try decoded.decode(encoded, password);
 
     // Verify all fields match
-    try testing.expectEqualSlices(u8, &original.publicKey, &decoded.publicKey);
-    try testing.expectEqual(original.majorVer, decoded.majorVer);
-    try testing.expectEqual(original.minorVer, decoded.minorVer);
+    try testing.expectEqualSlices(u8, &original.public_key, &decoded.public_key);
+    try testing.expectEqual(original.major_ver, decoded.major_ver);
+    try testing.expectEqual(original.minor_ver, decoded.minor_ver);
     try testing.expectEqual(original.priority, decoded.priority);
 }
