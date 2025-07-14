@@ -177,15 +177,3 @@ pub const Tun = struct {
         };
     }
 };
-
-// Usage example:
-pub fn main() !void {
-    var tun_dev = Tun.init("tun0") catch |err| {
-        std.debug.print("Failed to create TUN device: {}\n", .{err});
-        return;
-    };
-    defer tun_dev.deinit();
-
-    // Run the packet capture loop
-    try tun_dev.runPacketLoop();
-}
