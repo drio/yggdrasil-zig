@@ -61,7 +61,7 @@ pub const VersionMetadata = struct {
 
     // encode the payload for the handshake
     // the original go implementation uses passhword for the hash. We will use nil for now
-    pub fn encode(self: *const Self, allocator: Allocator, private_key: Ed25519.SecretKey, password: ?[]const u8) ![]u8 {
+    pub fn encode(self: *Self, allocator: Allocator, private_key: Ed25519.SecretKey, password: ?[]const u8) ![]u8 {
         var buffer = std.ArrayList(u8).init(allocator);
         defer buffer.deinit();
 
@@ -89,17 +89,16 @@ pub const VersionMetadata = struct {
         // public key
         const public_key_type = mem.nativeTo(u16, @intFromEnum(MetaField.public_key), .big);
         try buffer.appendSlice(&mem.toBytes(public_key_type));
-        const public_key_field_length = mem.nativeTo(u16, 2, .big);
+        const public_key_field_length = mem.nativeTo(u16, ED25519_PUBLIC_KEY_SIZE, .big);
         try buffer.appendSlice(&mem.toBytes(public_key_field_length));
-        try buffer.appendSlice(&private_key.publicKeyBytes());
+        try buffer.appendSlice(&self.public_key);
 
         // priority
         const priority_field_type = mem.nativeTo(u16, @intFromEnum(MetaField.priority), .big);
         try buffer.appendSlice(&mem.toBytes(priority_field_type));
         const priority_field_length = mem.nativeTo(u16, 1, .big);
         try buffer.appendSlice(&mem.toBytes(priority_field_length));
-        const priority_value = mem.nativeTo(u16, self.priority, .big);
-        try buffer.appendSlice(&mem.toBytes(priority_value));
+        try buffer.appendSlice(&[_]u8{self.priority});
 
         // Create BLAKE2b hash of public key with password as key
         var hasher = if (password) |pwd|
@@ -127,7 +126,7 @@ pub const VersionMetadata = struct {
     }
 
     // decode these bytes and set the metadata
-    pub fn decode(self: *Self, data: []const u8, password: []const u8) !void {
+    pub fn decode(self: *Self, data: []const u8, password: ?[]const u8) !void {
         if (data.len < 6) return error.InsufficientData;
 
         // Let's check the header
@@ -158,7 +157,9 @@ pub const VersionMetadata = struct {
         var bs_remaining = bs;
         while (bs_remaining.len >= 4) {
             const op = std.mem.readInt(u16, bs_remaining[0..2], .big);
-            const op_enum = std.meta.intToEnum(MetaField, op) catch {
+
+            const op_enum = std.meta.intToEnum(MetaField, op) catch |err| {
+                std.debug.print("Failed to convert opcode {} to enum: {}\n", .{ op, err });
                 return error.InvalidMetaDataEntry;
             };
             const oplen = std.mem.readInt(u16, bs_remaining[2..4], .big);
@@ -189,7 +190,10 @@ pub const VersionMetadata = struct {
 
         // Signature next
         // 1. Create BLAKE2b hasher (with or without password)
-        var hasher = std.crypto.hash.blake2.Blake2b512.init(.{ .key = password });
+        var hasher = if (password) |pwd|
+            std.crypto.hash.blake2.Blake2b512.init(.{ .key = pwd })
+        else
+            std.crypto.hash.blake2.Blake2b512.init(.{});
 
         // 2. Hash the public key
         hasher.update(&self.public_key);
@@ -212,6 +216,7 @@ pub const VersionMetadata = struct {
 
 const t_allocator = testing.allocator;
 
+// Test to make sure logic works (or fails) correctly depending on the password param
 test "version password auth" {
     const TestCase = struct {
         password1: ?[]const u8, // The password on node 1
@@ -221,11 +226,11 @@ test "version password auth" {
 
     const test_cases = [_]TestCase{
         .{ .password1 = null, .password2 = null, .allowed = true }, // Allow: No passwords (both null)
-        //.{ .password1 = null, .password2 = "", .allowed = true }, // Allow: No passwords (mixed null and empty)
-        //.{ .password1 = null, .password2 = "foo", .allowed = false }, // Reject: One node has password, other doesn't
-        //.{ .password1 = "foo", .password2 = "", .allowed = false }, // Reject: One node has password, other doesn't
-        //.{ .password1 = "foo", .password2 = "foo", .allowed = true }, // Allow: Same password
-        //.{ .password1 = "foo", .password2 = "bar", .allowed = false }, // Reject: Different passwords
+        .{ .password1 = null, .password2 = "", .allowed = true }, // Allow: No passwords (mixed null and empty)
+        .{ .password1 = null, .password2 = "foo", .allowed = false }, // Reject: One node has password, other doesn't
+        .{ .password1 = "foo", .password2 = "", .allowed = false }, // Reject: One node has password, other doesn't
+        .{ .password1 = "foo", .password2 = "foo", .allowed = true }, // Allow: Same password
+        .{ .password1 = "foo", .password2 = "bar", .allowed = false }, // Reject: Different passwords
     };
 
     for (test_cases) |tt| {
@@ -243,31 +248,32 @@ test "version password auth" {
         };
 
         // Convert optional passwords to slices
-        const pass1 = if (tt.password1) |p| p else &[_]u8{};
-        const pass2 = if (tt.password2) |p| p else &[_]u8{};
 
-        // Encode metadata with node 1's password
-        const encoded = metadata1.encode(t_allocator, key_pair.secret_key, pass1) catch |err| {
+        // Generate over the wire data for node1
+        const encoded = metadata1.encode(t_allocator, key_pair.secret_key, tt.password1) catch |err| {
             std.debug.panic("Node 1 failed to encode metadata: {}", .{err});
         };
         defer t_allocator.free(encoded);
 
-        // Try to decode with node 2's password
-        const decoded = VersionMetadata{
+        // We  are now in node2 and we want to decode the over the wire data received from node1
+        var decoded = VersionMetadata{
             .public_key = undefined,
             .major_ver = 0,
             .minor_ver = 0,
             .priority = 0,
         };
 
-        //const allowed = if (decoded.decode(encoded, pass2)) true else |_| false;
-        // if (allowed != tt.allowed) {
-        //     std.debug.panic("Permutation '{?s}' -> '{?s}' should have been {} but was {}", .{ tt.password1, tt.password2, tt.allowed, allowed });
-        // }
+        const decode_result = decoded.decode(encoded, tt.password2);
+        const allowed = if (decode_result) true else |_| false;
 
-        _ = decoded;
-        _ = pass2;
-        _ = decoded;
+        if (allowed != tt.allowed) {
+            if (decode_result) |_| {
+                std.debug.print("Test failed: password1='{?s}', password2='{?s}', expected={}, got={} (decode succeeded)\n", .{ tt.password1, tt.password2, tt.allowed, allowed });
+            } else |err| {
+                std.debug.print("Test failed: password1='{?s}', password2='{?s}', expected={}, got={} (decode failed with error: {})\n", .{ tt.password1, tt.password2, tt.allowed, allowed, err });
+            }
+        }
+        try testing.expectEqual(tt.allowed, allowed);
     }
 }
 
