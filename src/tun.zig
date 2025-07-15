@@ -61,9 +61,6 @@ pub const Tun = struct {
     fn setIP(self: *Tun, ip_addr: []const u8, netmask: []const u8) !void {
         const allocator = std.heap.page_allocator;
 
-        const ip_with_mask = try std.fmt.allocPrint(allocator, "{s}/{s}", .{ ip_addr, netmask });
-        defer allocator.free(ip_with_mask);
-
         const result = std.process.Child.run(.{
             .allocator = allocator,
             .argv = &[_][]const u8{ "ip", "addr", "add", try std.fmt.allocPrint(allocator, "{s}/{s}", .{ ip_addr, netmask }), "dev", self.name },
@@ -75,8 +72,6 @@ pub const Tun = struct {
         defer allocator.free(result.stderr);
 
         if (result.term.Exited != 0) {
-            //std.debug.print("Failed to set IP address. Exit code: {}\n", .{result.term.Exited});
-            //std.debug.print("stderr: {s}\n", .{result.stderr});
             return error.IPSetupFailed;
         }
 
@@ -126,42 +121,49 @@ pub const Tun = struct {
     pub fn runPacketLoop(self: *Tun) !void {
         var buf: [1504]u8 = undefined;
 
-        //std.debug.print("Starting packet capture loop on '{s}'\n", .{self.name});
-
+        std.debug.print("Starting packet capture loop on '{s}'\n", .{self.name});
         while (true) {
             const n = self.readPacket(&buf) catch |err| {
                 std.debug.print("Error reading packet: {}\n", .{err});
                 continue;
             };
 
-            //std.debug.print("Received {} bytes\n", .{n});
-
-            // Basic IPv4 header parsing
             if (n < 20) {
                 //std.debug.print("Packet too short to be IPv4\n", .{});
                 continue;
             }
 
             const version = buf[0] >> 4;
-            if (version != 4) {
-                //std.debug.print("Not an IPv4 packet (version={s})\n", .{version});
-                continue;
+            if (version == 4) {
+                const src_ip = buf[12..16];
+                const dst_ip = buf[16..20];
+                const protocol = buf[9];
+
+                std.debug.print(
+                    "IPv4 Packet: {}.{}.{}.{} -> {}.{}.{}.{}, proto: {} ({s})\n",
+                    .{
+                        src_ip[0], src_ip[1],              src_ip[2], src_ip[3],
+                        dst_ip[0], dst_ip[1],              dst_ip[2], dst_ip[3],
+                        protocol,  protocolName(protocol),
+                    },
+                );
+            } else if (version == 6) {
+                var src_buf: [64]u8 = undefined;
+                var dst_buf: [64]u8 = undefined;
+                const src_ip = buf[8..24];
+                const dst_ip = buf[24..40];
+                const next_header = buf[6];
+
+                const src_str = formatIPv6(src_ip, &src_buf) catch "invalid";
+                const dst_str = formatIPv6(dst_ip, &dst_buf) catch "invalid";
+
+                std.debug.print(
+                    "IPv6 Packet: {s} -> {s}, next: {} ({s})\n",
+                    .{ src_str, dst_str, next_header, protocolName(next_header) },
+                );
             }
 
-            const src_ip = buf[12..16];
-            const dst_ip = buf[16..20];
-            const protocol = buf[9];
-
-            std.debug.print(
-                "IPv4 Packet: {}.{}.{}.{} -> {}.{}.{}.{}, proto: {} ({s})\n",
-                .{
-                    src_ip[0], src_ip[1],              src_ip[2], src_ip[3],
-                    dst_ip[0], dst_ip[1],              dst_ip[2], dst_ip[3],
-                    protocol,  protocolName(protocol),
-                },
-            );
-
-            // Optional: Echo packet back to sender
+            // TODO: Echo packet back to sender
             // _ = self.writePacket(buf[0..n]) catch |err| {
             //     std.debug.print("Error writing packet: {}\n", .{err});
             // };
@@ -177,3 +179,10 @@ pub const Tun = struct {
         };
     }
 };
+
+fn formatIPv6(ip: []const u8, buffer: []u8) ![]const u8 {
+    return std.fmt.bufPrint(buffer, "{x:0>2}{x:0>2}:{x:0>2}{x:0>2}:{x:0>2}{x:0>2}:{x:0>2}{x:0>2}:{x:0>2}{x:0>2}:{x:0>2}{x:0>2}:{x:0>2}{x:0>2}:{x:0>2}{x:0>2}", .{
+        ip[0], ip[1], ip[2],  ip[3],  ip[4],  ip[5],  ip[6],  ip[7],
+        ip[8], ip[9], ip[10], ip[11], ip[12], ip[13], ip[14], ip[15],
+    });
+}

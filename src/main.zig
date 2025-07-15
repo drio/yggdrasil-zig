@@ -46,15 +46,15 @@ pub fn main() !void {
     std.debug.print("\n", .{});
     std.debug.print("Is valid?: {} \n", .{ip_addr.is_valid()});
 
-    // var tun_dev = try tun.Tun.init("tun0");
-    // defer tun_dev.deinit();
-    // try tun_dev.configure("192.168.50.1", "24");
-    // try tun_dev.runPacketLoop();
+    var tun_dev = try tun.Tun.init("tun0");
+    defer tun_dev.deinit();
+    try tun_dev.configure("192.168.50.1", "24");
+    try tun_dev.runPacketLoop();
 
-    var metadata = version.VersionMetadata.init();
-    const handshake_bytes = try metadata.encode(allocator, keypair.secret_key, null);
-    defer allocator.free(handshake_bytes);
-    std.debug.print("Bytes: ", .{});
-    for (handshake_bytes) |b| std.debug.print("{X:0>2}", .{b});
-    std.debug.print("\n", .{});
+    // var metadata = version.VersionMetadata.init();
+    // const handshake_bytes = try metadata.encode(allocator, keypair.secret_key, null);
+    // defer allocator.free(handshake_bytes);
+    // std.debug.print("Bytes: ", .{});
+    // for (handshake_bytes) |b| std.debug.print("{X:0>2}", .{b});
+    // std.debug.print("\n", .{});
 }
