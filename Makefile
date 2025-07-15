@@ -15,4 +15,13 @@ run/sudo:
 	ED25519_SECRET_KEY=$(ED25519_SECRET_KEY) \
 	sudo -E env $(Z) run src/main.zig
 
+tun/check/4:
+	ip addr show tun0
+	@echo
+	ip route
+
+tun/check/6:
+	ip -6 addr show tun0
+	@echo
+	ip -6 route
 
