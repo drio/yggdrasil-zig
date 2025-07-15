@@ -20,11 +20,11 @@ pub const Tun = struct {
             .mode = .read_write,
         }) catch |err| switch (err) {
             error.FileNotFound => {
-                //std.debug.print("TUN device not found. Make sure TUN/TAP support is enabled.\n", .{});
+                std.debug.print("TUN device not found. Make sure TUN/TAP support is enabled.\n", .{});
                 return err;
             },
             error.AccessDenied => {
-                //std.debug.print("Permission denied. Try running as root.\n", .{});
+                std.debug.print("Permission denied. Try running as root.\n", .{});
                 return err;
             },
             else => return err,

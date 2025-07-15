@@ -15,6 +15,9 @@ run/sudo:
 	ED25519_SECRET_KEY=$(ED25519_SECRET_KEY) \
 	sudo -E env $(Z) run src/main.zig
 
+tun/delete:
+	sudo ip link delete tun0
+
 tun/check/4:
 	ip addr show tun0
 	@echo

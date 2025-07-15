@@ -3,7 +3,7 @@ const t = std.testing;
 const Ed25519 = std.crypto.sign.Ed25519;
 
 // Address type - 128-bit address = 16 bytes
-const Address = struct {
+pub const Address = struct {
     bytes: [16]u8,
 
     // is the address valid?
@@ -129,4 +129,14 @@ test "addr_for_key" {
     const addr = addrForKey(public_key);
 
     try t.expect(std.mem.eql(u8, &expected_address.bytes, &addr.bytes));
+}
+
+pub fn printIPv6(ip_addr: Address) void {
+    std.debug.print("addr: ", .{});
+    for (0..8) |i| {
+        const group = (@as(u16, ip_addr.bytes[i * 2]) << 8) | ip_addr.bytes[i * 2 + 1];
+        std.debug.print("{x:0>4}", .{group});
+        if (i < 7) std.debug.print(":", .{});
+    }
+    std.debug.print("\n", .{});
 }
