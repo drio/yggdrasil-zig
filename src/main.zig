@@ -12,8 +12,8 @@ const version = @import("version.zig");
 // - [x] 1. generate Ed25519 key generate and load
 // - [x] 2. hex encoding of the keys
 // - [x] 3. IPv6 address derivation (look at yggdrasil code)
-// 4. create tun device (set ipv6 address)
-// 5. associate my ipv6 address to the tun device.
+// - [x] 4. create tun device (set ipv6 address)
+// - [x] 5. associate my ipv6 address to the tun device.
 // 6. Do the handshake with G.
 //  a. method to prepare structure.
 //  b. write code to send handshake
